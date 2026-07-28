@@ -10,17 +10,22 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     
+    # Добавляем переменные окружения для всего джоба
+    env:
+      # Фиктивный URL нужен только для prisma generate на этапе сборки
+      DATABASE_URL: "postgresql://user:password@localhost:5432/ticket_db?schema=public"
+      KAFKA_BROKER: "localhost:9092"
+      PORT: "3000"
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 1. СНАЧАЛА устанавливаем pnpm (версия автоматически берется из package.json)
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           run_install: false
 
-      # 2. ЗАТЕМ настраиваем Node.js и кэш pnpm (теперь pnpm уже есть в PATH)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -36,5 +41,5 @@ jobs:
       - name: Run Smoke Test (requires Docker)
         run: |
           pnpm docker:up -d
-          sleep 15 # Даем PostgreSQL и Redpanda время на инициализацию
+          sleep 15
           pnpm run smoke-test
