@@ -88,7 +88,7 @@ jobs:
       - name: Wait for services to be ready
         run: |
           echo "⏳ Waiting for API Gateway..."
-          for i in {1..60}; do
+          for i in {1..30}; do
             if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/tickets | grep -q "404\|200"; then
               echo "✅ API Gateway is ready"
               break
@@ -97,7 +97,7 @@ jobs:
           done
 
           echo "⏳ Waiting for Frontend..."
-          for i in {1..60}; do
+          for i in {1..30}; do
             if curl -s -o /dev/null -w "%{http_code}" http://localhost:3001 | grep -q "200"; then
               echo "✅ Frontend is ready"
               break
@@ -108,16 +108,19 @@ jobs:
       - name: Run Smoke Test
         run: pnpm run smoke-test
 
-      - name: Upload logs on failure
+      - name: Show logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: service-logs
-          path: |
-            ticket-service.log
-            api-gateway.log
-            web.log
-          retention-days: 3
+        run: |
+          echo "=========================================="
+          echo "=== TICKET SERVICE LOGS ==="
+          cat ticket-service.log || echo "No log file"
+          echo "=========================================="
+          echo "=== API GATEWAY LOGS ==="
+          cat api-gateway.log || echo "No log file"
+          echo "=========================================="
+          echo "=== WEB LOGS ==="
+          cat web.log || echo "No log file"
+          echo "=========================================="
 
       - name: Cleanup
         if: always()
