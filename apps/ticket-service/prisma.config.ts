@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from "prisma/config";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -7,6 +7,9 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    // Используем process.env с fallback. 
+    // Это позволяет prisma generate работать в CI, где DATABASE_URL еще не задан,
+    // но при этом использует реальный URL из .env в локальной разработке и на проде.
+    url: process.env.DATABASE_URL || "postgresql://user:password@localhost:5432/ticket_db?schema=public",
   },
 });
