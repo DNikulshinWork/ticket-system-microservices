@@ -9,14 +9,14 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
-    # Добавляем переменные окружения для всего джоба
+    timeout-minutes: 15
+
     env:
-      # Фиктивный URL нужен только для prisma generate на этапе сборки
-      DATABASE_URL: "postgresql://user:password@localhost:5432/ticket_db?schema=public"
+      DATABASE_URL: "postgresql://ticket_user:ticket_password@localhost:5432/ticket_db?schema=public"
       KAFKA_BROKER: "localhost:9092"
       PORT: "3000"
-    
+      NODE_ENV: "test"
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -38,8 +38,91 @@ jobs:
       - name: Build all apps and packages
         run: pnpm run build
 
-      - name: Run Smoke Test (requires Docker)
+      - name: Start infrastructure (Docker)
+        run: pnpm docker:up -d
+
+      - name: Wait for PostgreSQL and Kafka to be ready
         run: |
-          pnpm docker:up -d
-          sleep 15
-          pnpm run smoke-test
+          echo "⏳ Waiting for PostgreSQL..."
+          for i in {1..30}; do
+            if docker compose -f docker/docker-compose.yml exec -T postgres pg_isready -U ticket_user -d ticket_db >/dev/null 2>&1; then
+              echo "✅ PostgreSQL is ready"
+              break
+            fi
+            sleep 1
+          done
+
+          echo "⏳ Waiting for Kafka (Redpanda)..."
+          for i in {1..30}; do
+            if docker compose -f docker/docker-compose.yml exec -T redpanda rpk cluster health >/dev/null 2>&1; then
+              echo "✅ Kafka is ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Apply database migrations
+        run: pnpm --filter ticket-service run db:deploy
+
+      - name: Start Ticket Service (background)
+        run: |
+          pnpm --filter ticket-service run start:prod > ticket-service.log 2>&1 &
+          echo $! > ticket-service.pid
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          KAFKA_BROKER: ${{ env.KAFKA_BROKER }}
+
+      - name: Start API Gateway (background)
+        run: |
+          pnpm --filter api-gateway run start:prod > api-gateway.log 2>&1 &
+          echo $! > api-gateway.pid
+        env:
+          KAFKA_BROKER: ${{ env.KAFKA_BROKER }}
+          PORT: "3000"
+
+      - name: Start Frontend (background)
+        run: |
+          PORT=3001 pnpm --filter web run start > web.log 2>&1 &
+          echo $! > web.pid
+
+      - name: Wait for services to be ready
+        run: |
+          echo "⏳ Waiting for API Gateway..."
+          for i in {1..60}; do
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/tickets | grep -q "404\|200"; then
+              echo "✅ API Gateway is ready"
+              break
+            fi
+            sleep 1
+          done
+
+          echo "⏳ Waiting for Frontend..."
+          for i in {1..60}; do
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:3001 | grep -q "200"; then
+              echo "✅ Frontend is ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run Smoke Test
+        run: pnpm run smoke-test
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-logs
+          path: |
+            ticket-service.log
+            api-gateway.log
+            web.log
+          retention-days: 3
+
+      - name: Cleanup
+        if: always()
+        run: |
+          pnpm docker:down -v || true
+          kill $(cat ticket-service.pid 2>/dev/null) 2>/dev/null || true
+          kill $(cat api-gateway.pid 2>/dev/null) 2>/dev/null || true
+          kill $(cat web.pid 2>/dev/null) 2>/dev/null || true
