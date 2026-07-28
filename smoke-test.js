@@ -1,11 +1,16 @@
 const { execSync } = require('child_process');
 
 const colors = {
-  green: '\x1b[32m', red: '\x1b[31m', yellow: '\x1b[33m', cyan: '\x1b[36m', gray: '\x1b[90m', reset: '\x1b[0m'
+  green: '\x1b[32m',
+  red: '\x1b[31m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  gray: '\x1b[90m',
+  reset: '\x1b[0m'
 };
 
 function log(message, color = 'reset') {
-  console.log(\\\\\);
+  console.log(`${colors[color]}${message}${colors.reset}`);
 }
 
 async function checkDocker() {
@@ -20,9 +25,9 @@ async function checkDocker() {
     ];
     checks.forEach(check => {
       if (containers.some(c => check.pattern.test(c))) {
-        log(\  ✅ \ запущен\, 'green');
+        log(`  ✅ ${check.name} запущен`, 'green');
       } else {
-        log(\  ⚠️ \ не запущен\, 'yellow');
+        log(`  ⚠️ ${check.name} не запущен`, 'yellow');
       }
     });
     return true;
@@ -49,10 +54,10 @@ async function checkApiGateway() {
   log('\n2. Проверка API Gateway...', 'cyan');
   try {
     const response = await checkWithTimeout('http://localhost:3000/tickets', { method: 'GET' }, 5000);
-    log(\  ✅ API Gateway отвечает (статус: \)\, 'green');
+    log(`  ✅ API Gateway отвечает (статус: ${response.status})`, 'green');
     return true;
   } catch (error) {
-    log(\  ❌ API Gateway НЕ отвечает: \\, 'red');
+    log(`  ❌ API Gateway НЕ отвечает: ${error.message}`, 'red');
     return false;
   }
 }
@@ -68,22 +73,22 @@ async function checkTicketCreation() {
         description: 'Автоматический тест системы',
         authorId: 'smoke-test-user'
       })
-    }, 10000); // 10 секунд на RPC вызов
+    }, 10000);
 
     if (response.ok) {
       const ticket = await response.json();
-      log(\  ✅ Тикет успешно создан! ID: \\, 'green');
-      log(\     Статус: \\, 'gray');
+      log(`  ✅ Тикет успешно создан! ID: ${ticket.id}`, 'green');
+      log(`     Статус: ${ticket.status}`, 'gray');
       return true;
     } else {
-      log(\  ❌ Ошибка создания тикета: статус \\, 'red');
+      log(`  ❌ Ошибка создания тикета: статус ${response.status}`, 'red');
       return false;
     }
   } catch (error) {
     if (error.name === 'AbortError') {
       log('  ❌ Превышено время ожидания (10с). Возможно, Ticket Service не запущен или Kafka не отвечает.', 'red');
     } else {
-      log(\  ❌ Ошибка создания тикета: \\, 'red');
+      log(`  ❌ Ошибка создания тикета: ${error.message}`, 'red');
     }
     return false;
   }
@@ -122,10 +127,10 @@ async function runSmokeTest() {
   const total = Object.keys(results).length;
 
   if (passed === total) {
-    log(\\n✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ! (\/\)\, 'green');
+    log(`\n✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ! (${passed}/${total})`, 'green');
     process.exit(0);
   } else {
-    log(\\n⚠️ ПРОЙДЕНО \ из \ проверок\, 'yellow');
+    log(`\n⚠️ ПРОЙДЕНО ${passed} из ${total} проверок`, 'yellow');
     process.exit(1);
   }
 }
