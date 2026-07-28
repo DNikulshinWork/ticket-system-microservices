@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "ticket-system-microservices",
   "version": "0.0.1",
   "private": true,
@@ -8,7 +8,14 @@
     "lint": "turbo run lint",
     "clean": "turbo run clean",
     "docker:up": "docker compose -f docker/docker-compose.yml up -d",
-    "docker:down": "docker compose -f docker/docker-compose.yml down"
+    "docker:down": "docker compose -f docker/docker-compose.yml down",
+    "db:studio": "pnpm --filter ticket-service run db:studio",
+    "db:dev": "pnpm --filter ticket-service run db:dev",
+    "db:deploy": "pnpm --filter ticket-service run db:deploy",
+    "db:push": "pnpm --filter ticket-service run db:push",
+    "db:generate": "pnpm --filter ticket-service run db:generate",
+    "smoke-test": "node smoke-test.js",
+    "test": "node smoke-test.js"
   },
   "devDependencies": {
     "turbo": "^2.3.3",
