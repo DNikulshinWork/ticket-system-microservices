@@ -14,15 +14,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 1. СНАЧАЛА устанавливаем pnpm (версия автоматически берется из package.json)
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      # 2. ЗАТЕМ настраиваем Node.js и кэш pnpm (теперь pnpm уже есть в PATH)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22' # Актуальный LTS, избегаем предупреждений о Node 20
+          node-version: '22'
           cache: 'pnpm'
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        # Мы убрали 'version: 9'. Теперь action сам прочитает "pnpm@9.12.0" из package.json!
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
